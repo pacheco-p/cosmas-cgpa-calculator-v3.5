@@ -1,38 +1,39 @@
-# history.py
 import streamlit as st
 import pandas as pd
-import io
-import database
 
-def show():
-    st.title("📊 Calculation History")
-    history=database.get_history(st.session_state.username)
-    if not history:
-        st.info("No saved calculations.")
-        return
-    df=pd.DataFrame(history,columns=[
-        "ID","Session","Semester","Semester GPA","CGPA",
-        "Credit Units","Quality Points","Classification","Date"
-    ])
-    st.dataframe(df,use_container_width=True,hide_index=True)
+def show(get_history_func, delete_history_func):
+    try:
+        st.image("assets/cosmas_banner.png", use_container_width=True)
+    except:
+        st.markdown("""
+        <div style="background: linear-gradient(90deg, #1e3a8a 0%, #0f172a 100%); padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+            <h1 style="color: white; margin: 0; font-family: sans-serif; letter-spacing: 2px;">COSMAS AT SUG TOP SEAT</h1>
+            <p style="color: #cbd5e1; margin: 5px 0 0 0; font-family: sans-serif;">Support • Pray • Canvass</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-    st.subheader("View Courses")
-    rid=st.selectbox("Select Record",df["ID"])
-    if st.button("Show Courses"):
-        c=database.get_courses(int(rid))
-        if c:
-            cdf=pd.DataFrame(c,columns=[
-                "Course","Credit Units","Grade","Grade Point","Quality Points"
-            ])
-            st.dataframe(cdf,use_container_width=True,hide_index=True)
-        else:
-            st.info("No courses found.")
+    st.title("Calculation History Log")
+    st.markdown("Review and manage your previously saved GPA and CGPA computation records.")
 
-    if st.button("🗑 Delete Selected Record"):
-        database.delete_history(int(rid))
-        st.success("Deleted.")
-        st.rerun()
+    records = get_history_func(st.session_state.username)
 
-    buf=io.BytesIO()
-    df.to_csv(buf,index=False)
-    st.download_button("📥 Download CSV",buf.getvalue(),"history.csv","text/csv")
+    if records:
+        df = pd.DataFrame(
+            records, 
+            columns=["ID", "GPA", "CGPA", "Total Units", "Quality Points", "Semester Label", "Date Saved"]
+        )
+        st.dataframe(df.drop(columns=["ID"]), use_container_width=True, hide_index=True)
+        
+        st.divider()
+        st.subheader("Manage Records")
+        
+        record_options = {f"{row[5]} (CGPA: {row[2]:.2f}) - {row[6]}": row[0] for row in records}
+        selected_record = st.selectbox("Select a calculation record to delete:", list(record_options.keys()))
+        
+        if st.button("Delete Selected Record", type="primary"):
+            record_id = record_options[selected_record]
+            delete_history_func(record_id)
+            st.success("Record deleted successfully!")
+            st.rerun()
+    else:
+        st.info("No saved computation history found. Go to the CGPA Calculator to save your logs.")
