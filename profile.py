@@ -1,31 +1,52 @@
-# profile.py
 import streamlit as st
-import pandas as pd
-import database
 
-def show():
-    st.title("👤 My Profile")
-    user=database.get_user(st.session_state.username)
-    if user:
-        st.write(f"**Username:** {user[1]}")
-        st.write(f"**Email:** {user[2]}")
-    st.divider()
+def show(get_user_profile_func, update_user_profile_func):
+    try:
+        st.image("assets/cosmas_banner.png", use_container_width=True)
+    except:
+        st.markdown("""
+        <div style="background: linear-gradient(90deg, #1e3a8a 0%, #0f172a 100%); padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+            <h1 style="color: white; margin: 0; font-family: sans-serif; letter-spacing: 2px;">COSMAS AT SUG TOP SEAT</h1>
+            <p style="color: #cbd5e1; margin: 5px 0 0 0; font-family: sans-serif;">Support • Pray • Canvass</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-    stats=database.get_statistics(st.session_state.username)
-    c1,c2,c3=st.columns(3)
-    c1.metric("Saved Results",stats[0] or 0)
-    c2.metric("Highest CGPA",f"{(stats[1] or 0):.2f}")
-    c3.metric("Average CGPA",f"{(stats[2] or 0):.2f}")
+    st.title("My Profile Settings")
+    st.markdown("Manage your institutional user records and tracking configurations.")
 
-    hist=database.get_history(st.session_state.username)
-    if hist:
-        df=pd.DataFrame(hist,columns=[
-            "ID","Session","Semester","Semester GPA","CGPA",
-            "Credit Units","Quality Points","Classification","Date"
-        ])
-        st.subheader("Recent Results")
-        st.dataframe(df.drop(columns=["ID"]).head(5),hide_index=True,use_container_width=True)
-        st.subheader("CGPA Progress")
-        st.line_chart(df.iloc[::-1][["CGPA"]])
-    else:
-        st.info("No saved calculations.")
+    user_data = get_user_profile_func(st.session_state.username)
+
+    if user_data:
+        with st.form("profile_form", clear_on_submit=False):
+            st.subheader("Personal Identification")
+            fullname = st.text_input("Full Name", value=user_data.get('fullname', ''))
+            email = st.text_input("Email Address", value=user_data.get('email', ''))
+            
+            st.subheader("Academic Information")
+            matric_no = st.text_input("Matric Number", value=user_data.get('matric_no', ''))
+            department = st.text_input("Department", value=user_data.get('department', ''))
+            
+            levels = ["100L", "200L", "300L", "400L", "500L"]
+            current_level = user_data.get('current_level', '100L')
+            level_idx = levels.index(current_level) if current_level in levels else 0
+            level = st.selectbox("Current Academic Level", levels, index=level_idx)
+            
+            save_changes = st.form_submit_button("Update Settings Profile")
+            
+            if save_changes:
+                if fullname.strip() and department.strip() and matric_no.strip():
+                    success = update_user_profile_func(
+                        st.session_state.username,
+                        fullname,
+                        email,
+                        matric_no,
+                        department,
+                        level
+                    )
+                    if success:
+                        st.success("Your profile settings have been successfully updated!")
+                        st.rerun()
+                    else:
+                        st.error("An error occurred while updating your database profile entry.")
+                else:
+                    st.error("Name, Matric Number, and Department cannot be left blank.")
